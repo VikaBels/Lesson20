@@ -1,0 +1,22 @@
+<resources>
+    <string name="app_name">Lesson20</string>
+
+    <string name="txt_button_login">Login</string>
+    <string name="txt_button_logout">Logout</string>
+    <string name="txt_edit_text_Email">E-mail</string>
+    <string name="txt_edit_text_Password">Password</string>
+
+    <string name="txt_text_view_main">Error: not valid email or password</string>
+
+    <string name="error_empty_email_field">Please, input email</string>
+    <string name="error_empty_password_field">Please, input password</string>
+
+    <string name="error_not_valid_email_field">Not valid email</string>
+
+    <string name="txt_view_email">E-mail</string>
+    <string name="txt_view_first_name">First name</string>
+    <string name="txt_view_last_name">Last name</string>
+    <string name="txt_view_birth_data">Birth data</string>
+    <string name="txt_view_notes">Notes</string>
+
+</resources>
