@@ -1,5 +1,5 @@
 package com.example.lesson20.models
 
-data class SingInRequestBodyProfile(
+data class ProfileRequestBody(
     val token: String
 )

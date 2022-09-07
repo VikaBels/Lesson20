@@ -1,6 +1,6 @@
 package com.example.lesson20.models
 
-data class SingInRequestBodyLogin(
+data class LoginRequestBody(
     val email: String,
     val password: String
 )

@@ -3,6 +3,13 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 
+apply plugin: 'org.jetbrains.kotlin.android.extensions'
+android {
+    androidExtensions {
+        experimental = true
+    }
+}
+
 android {
     compileSdk 32
 

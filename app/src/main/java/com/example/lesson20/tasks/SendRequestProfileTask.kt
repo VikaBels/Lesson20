@@ -1,13 +1,13 @@
 package com.example.lesson20.tasks
 
+import android.content.Intent
 import android.os.AsyncTask
 import android.util.Log
-import com.example.lesson20.MESSAGE_INTERRUPTED_EXCEPTION
-import com.example.lesson20.MESSAGE_NO_INTERNET_EXCEPTION
-import com.example.lesson20.TAG_INTERRUPTED_EXCEPTION
-import com.example.lesson20.TYPE_CONTENT
-import com.example.lesson20.models.SingInRequestBodyProfile
-import com.example.lesson20.models.SingInResponseBodyProfile
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import com.example.lesson20.*
+import com.example.lesson20.models.App
+import com.example.lesson20.models.ProfileRequestBody
+import com.example.lesson20.models.ProfileResponseBody
 import com.google.gson.Gson
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -15,10 +15,11 @@ import okhttp3.Request
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
+import java.net.SocketTimeoutException
 
 class SendRequestProfileTask(
     private val token: String
-) : AsyncTask<Void?, String?, Void?>() {
+) : AsyncTask<Void?, String?, ProfileResponseBody?>() {
     companion object {
         const val URL_PROFILE =
             "https://pub.zame-dev.org/senla-training-addition/lesson-20.php?method=profile"
@@ -30,46 +31,52 @@ class SendRequestProfileTask(
         .Builder()
         .build()
 
-    override fun onProgressUpdate(vararg values: String?) {
-        super.onProgressUpdate(*values)
-    }
+    override fun doInBackground(vararg params: Void?): ProfileResponseBody? {
+        var objectResponseBodyProfile: ProfileResponseBody? = null
 
-    override fun doInBackground(vararg params: Void?): Void? {
         try {
-            //CHANGE TOKEN!!!
-            sendRequestProfile(token)
+            objectResponseBodyProfile = sendRequestProfile(token)
         } catch (ex: InterruptedException) {
             Log.e(TAG_INTERRUPTED_EXCEPTION, MESSAGE_INTERRUPTED_EXCEPTION, ex)
         }
-        return null
+
+        return objectResponseBodyProfile
     }
 
-    private fun sendRequestProfile(token: String) {
-        println("token: $token")
+    override fun onPostExecute(result: ProfileResponseBody?) {
+        super.onPostExecute(result)
 
-        val requestBody = SingInRequestBodyProfile(
+        sendBroadcastPersonInfo(result)
+    }
+
+    private fun sendBroadcastPersonInfo(objectResponseBodyProfile: ProfileResponseBody?) {
+        val intent = Intent(BROADCAST_ACTION_RESPONSE_PROFILE)
+        intent.putExtra(RESULT_PROFILE_REQUEST, objectResponseBodyProfile)
+        LocalBroadcastManager.getInstance(App.getInstanceApp()).sendBroadcast(intent)
+    }
+
+    private fun sendRequestProfile(token: String): ProfileResponseBody? {
+        val requestBody = ProfileRequestBody(
             token = token
         )
 
         val requestBodyString = gson.toJson(requestBody)
         val okHttpRequestBody = requestBodyString.toRequestBody(TYPE_CONTENT.toMediaType())
 
-        val response = client
-            .newCall(getRequestProfile(okHttpRequestBody))
-            .execute()
+        var singInResponseBody: ProfileResponseBody? = null
 
         try {
+
+            val response = client
+                .newCall(getRequestProfile(okHttpRequestBody))
+                .execute()
+
             if (response.isSuccessful) {
                 val responseBodyString = response.body?.string()
-                val singInResponseBody = gson.fromJson(
+                singInResponseBody = gson.fromJson(
                     responseBodyString,
-                    SingInResponseBodyProfile::class.java
+                    ProfileResponseBody::class.java
                 )
-
-                println("firstName:${singInResponseBody.firstName}")
-                println("lastName:${singInResponseBody.lastName}")
-                println("birthDate:${singInResponseBody.birthDate}")
-                println("notes:${singInResponseBody.notes}")
 
             } else {
                 Log.e(TAG_INTERRUPTED_EXCEPTION, "${response.code}")
@@ -80,6 +87,8 @@ class SendRequestProfileTask(
                 MESSAGE_NO_INTERNET_EXCEPTION, ex
             )
         }
+
+        return singInResponseBody
     }
 
     private fun getRequestProfile(okHttpRequestBody: RequestBody): Request {

@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -7,11 +8,21 @@
     android:padding="10dp"
     tools:context=".activities.ProfileActivity">
 
+    <ProgressBar
+        android:id="@+id/progressBar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:indeterminate="true"
+        android:visibility="invisible"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
     <TextView
         android:id="@+id/textViewEmail"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:text="textViewEmail"
         app:layout_constraintBottom_toTopOf="@+id/textViewFirstName"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -22,7 +33,6 @@
         android:id="@+id/textViewFirstName"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:text="textViewFirstName"
         app:layout_constraintBottom_toTopOf="@+id/textViewLastName"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -33,18 +43,16 @@
         android:id="@+id/textViewLastName"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:text="textViewLastName"
-        app:layout_constraintBottom_toTopOf="@+id/textViewBirthData"
+        app:layout_constraintBottom_toTopOf="@+id/textViewBirthDate"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/textViewFirstName"
         app:layout_constraintVertical_weight="1" />
 
     <TextView
-        android:id="@+id/textViewBirthData"
+        android:id="@+id/textViewBirthDate"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:text="textViewBirthData"
         app:layout_constraintBottom_toTopOf="@+id/textViewNotes"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -55,12 +63,12 @@
         android:id="@+id/textViewNotes"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:text="textViewNotes"
+        android:scrollbars = "vertical"
         app:layout_constraintBottom_toTopOf="@+id/buttonLogout"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/textViewBirthData"
-        app:layout_constraintVertical_weight="5" />
+        app:layout_constraintTop_toBottomOf="@+id/textViewBirthDate"
+        app:layout_constraintVertical_weight="8" />
 
     <Button
         android:id="@+id/buttonLogout"
@@ -72,6 +80,6 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/textViewNotes"
-        app:layout_constraintVertical_weight="1" />
+        app:layout_constraintVertical_weight="1.2" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

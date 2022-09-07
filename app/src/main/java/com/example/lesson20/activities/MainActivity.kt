@@ -5,49 +5,35 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Bundle
-import android.util.Patterns
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.util.PatternsCompat
 import androidx.core.view.isVisible
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.example.lesson20.*
 import com.example.lesson20.databinding.ActivityMainBinding
 import com.example.lesson20.models.App
+import com.example.lesson20.models.LoginResponseBody
 import com.example.lesson20.tasks.SendRequestLoginTask
-import com.example.lesson20.tasks.SendRequestProfileTask
 import com.google.android.material.textfield.TextInputLayout
 
 class MainActivity : AppCompatActivity() {
     private var bindingMain: ActivityMainBinding? = null
+    private var loginAsyncTask: SendRequestLoginTask? = null
 
-    private val txtViewErrorReceiver: BroadcastReceiver = object : BroadcastReceiver() {
+    private val serverResponseLoginReceiver: BroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent) {
-            val isErrorRequest = intent.getBooleanExtra(EXTRA_RESULT_TEXT_VIEW, false)
-            setVisibleError(isErrorRequest)
+            val loginResponseBody =
+                intent.getParcelableExtra<LoginResponseBody>(RESULT_LOGIN_REQUEST)
+
+            setVisibleProgressbar(false)
+
+            checkServerResponse(loginResponseBody)
         }
     }
 
-    private val progressBarReceiver: BroadcastReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent) {
-            val isInvisibleBar = intent.getBooleanExtra(EXTRA_RESULT_PROGRESS_BAR, false)
-            setVisibleProgressbar(isInvisibleBar)
-        }
-    }
-
-    private val tokenReceiver: BroadcastReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent) {
-            val currentToken = intent.getStringExtra(EXTRA_RESULT_TOKEN)
-            checkToken(currentToken)
-        }
-    }
-
-    private fun checkToken(token: String?) {
-        if (token.isNullOrEmpty()) {
-            println("empty")
-        } else {
-            val intent = Intent(this, ProfileActivity::class.java)
-            intent.putExtra(KEY_FOR_SEND_TOKEN_ACTIVITY, token)
-            startActivity(intent)
-        }
+    override fun onStart() {
+        super.onStart()
+        clearAllFields()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -64,37 +50,33 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         LocalBroadcastManager.getInstance(App.getInstanceApp()).registerReceiver(
-            txtViewErrorReceiver,
-            IntentFilter(BROADCAST_ACTION_SHOW_ERROR)
-        )
-        LocalBroadcastManager.getInstance(App.getInstanceApp()).registerReceiver(
-            progressBarReceiver,
-            IntentFilter(BROADCAST_ACTION_PROGRESS_BAR)
-        )
-        LocalBroadcastManager.getInstance(App.getInstanceApp()).registerReceiver(
-            tokenReceiver,
-            IntentFilter(BROADCAST_ACTION_TOKEN)
+            serverResponseLoginReceiver,
+            IntentFilter(BROADCAST_ACTION_RESPONSE_LOGIN)
         )
     }
 
     override fun onPause() {
         super.onPause()
         LocalBroadcastManager.getInstance(App.getInstanceApp())
-            .unregisterReceiver(txtViewErrorReceiver)
-        LocalBroadcastManager.getInstance(App.getInstanceApp())
-            .unregisterReceiver(progressBarReceiver)
-        LocalBroadcastManager.getInstance(App.getInstanceApp())
-            .unregisterReceiver(tokenReceiver)
+            .unregisterReceiver(serverResponseLoginReceiver)
     }
 
     override fun onDestroy() {
         super.onDestroy()
         bindingMain = null
+        loginAsyncTask?.cancel(false)
     }
 
-    //rename
-    private fun setVisibleError(isErrorRequest: Boolean) {
-        bindingMain?.textViewError?.isVisible = isErrorRequest
+    private fun clearAllFields() {
+        bindingMain?.apply {
+            textViewError.isVisible = false
+
+            editTextEmail.text = null
+            editTextPassword.text = null
+
+            editTextPassword.clearFocus()
+            editTextEmail.clearFocus()
+        }
     }
 
     private fun setupListeners(bindingMain: ActivityMainBinding) {
@@ -103,14 +85,34 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private lateinit var currentEmail: String
-    private lateinit var currentPassword: String
-
     private fun checkInputData(bindingMain: ActivityMainBinding) {
         if (isAllFieldValid(bindingMain) == true) {
             setVisibleProgressbar(true)
-            //"jane@domain.tld", "12345"
-            startServerTask(currentEmail, currentPassword)
+            startServerLoginTask()
+        }
+    }
+
+    private fun getEmail(): String? {
+        val email = bindingMain?.editTextEmail?.text?.toString()
+        return if (!email.isNullOrEmpty()) {
+            email
+        } else null
+    }
+
+    private fun getPassword(): String? {
+        val password = bindingMain?.editTextPassword?.text?.toString()
+        return if (!password.isNullOrEmpty()) {
+            password
+        } else null
+    }
+
+    private fun startServerLoginTask() {
+        val email = getEmail()
+        val password = getPassword()
+
+        if (email != null && password != null) {
+            loginAsyncTask = SendRequestLoginTask(email, password)
+            loginAsyncTask?.execute()
         }
     }
 
@@ -118,57 +120,27 @@ class MainActivity : AppCompatActivity() {
         bindingMain?.progressBar?.isVisible = isVisible
     }
 
-    private fun setErrorOnField(
-        fieldIsEmpty: Boolean,
-        inputLayout: TextInputLayout,
-        errorMessage: String,
-    ) {
-        if (fieldIsEmpty) {
-            inputLayout.error = errorMessage
-        } else {
-            inputLayout.error = null
-        }
-    }
-
     private fun isAllFieldValid(bindingMain: ActivityMainBinding): Boolean? {
-        val isEmptyEmailField = bindingMain.editTextEmail.text.isNullOrEmpty()
-        val isEmptyPasswordField = bindingMain.editTextPassword.text.isNullOrEmpty()
+        val email = bindingMain.editTextEmail.text
+        val password = bindingMain.editTextPassword.text
 
         var allFieldIsValid: Boolean? = null
 
-        setErrorOnField(
-            isEmptyEmailField,
-            bindingMain.inputLayoutEmail,
-            resources.getString(R.string.error_empty_email_field)
-        )
+        bindingMain.inputLayoutEmail.error =
+            getString(R.string.error_empty_email_field).takeIf { email.isNullOrEmpty() }
+        bindingMain.inputLayoutPassword.error =
+            getString(R.string.error_empty_password_field).takeIf { password.isNullOrEmpty() }
 
-        setErrorOnField(
-            isEmptyPasswordField,
-            bindingMain.inputLayoutPassword,
-            resources.getString(R.string.error_empty_password_field)
-        )
-
-
-        if (!isEmptyEmailField && !isEmptyPasswordField) {
-            allFieldIsValid = bindingMain.editTextEmail.text?.let {
-                isEmailValid(
-                    it,
-                    bindingMain.inputLayoutEmail
-                )
-            }
-
-            //CHANGE!!!!!! - delete toString
-            currentEmail = bindingMain.editTextEmail.text.toString()
-            currentPassword = bindingMain.editTextPassword.text.toString()
+        if (!email.isNullOrEmpty() && !password.isNullOrEmpty()) {
+            allFieldIsValid = isEmailValid(email, bindingMain.inputLayoutEmail)
         }
 
         return allFieldIsValid
     }
 
-
     private fun isEmailValid(email: CharSequence, inputLayoutEmail: TextInputLayout): Boolean {
         val isEmailValid: Boolean
-        if (Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+        if (PatternsCompat.EMAIL_ADDRESS.matcher(email).matches()) {
             isEmailValid = true
         } else {
             inputLayoutEmail.error =
@@ -178,10 +150,35 @@ class MainActivity : AppCompatActivity() {
         return isEmailValid
     }
 
-    //add cancel AsyncTask
-    private fun startServerTask(email: String, password: String) {
-        val helperAsyncTask = SendRequestLoginTask(email, password)
-        helperAsyncTask.execute()
+    private fun checkServerResponse(loginResponseBody: LoginResponseBody?) {
+        val token = loginResponseBody?.token
+        val status = loginResponseBody?.status
+
+        if (token != null) {
+            startProfileActivity(token)
+        } else {
+            if (status == ERROR_STATUS) {
+                setVisibleTextError(false)
+                showToastNoInternet(this)
+            } else {
+                setVisibleTextError(true)
+            }
+        }
     }
 
+    private fun setVisibleTextError(isVisible: Boolean) {
+        bindingMain?.textViewError?.isVisible = isVisible
+    }
+
+    private fun startProfileActivity(token: String) {
+        val intent = Intent(this, ProfileActivity::class.java)
+        val email = bindingMain?.editTextEmail?.text?.toString()
+
+        intent.apply {
+            putExtra(KEY_FOR_SEND_TOKEN, token)
+            putExtra(KEY_FOR_SEND_EMAIL, email)
+        }
+
+        startActivity(intent)
+    }
 }
