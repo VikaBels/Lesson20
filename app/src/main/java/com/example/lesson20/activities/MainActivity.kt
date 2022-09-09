@@ -14,6 +14,8 @@ import com.example.lesson20.databinding.ActivityMainBinding
 import com.example.lesson20.models.App
 import com.example.lesson20.models.LoginResponseBody
 import com.example.lesson20.tasks.SendRequestLoginTask
+import com.example.lesson20.tasks.SendRequestLoginTask.Companion.BROADCAST_ACTION_RESPONSE_LOGIN
+import com.example.lesson20.tasks.SendRequestLoginTask.Companion.RESULT_LOGIN_REQUEST
 import com.google.android.material.textfield.TextInputLayout
 
 class MainActivity : AppCompatActivity() {
@@ -25,15 +27,8 @@ class MainActivity : AppCompatActivity() {
             val loginResponseBody =
                 intent.getParcelableExtra<LoginResponseBody>(RESULT_LOGIN_REQUEST)
 
-            setVisibleProgressbar(false)
-
-            checkServerResponse(loginResponseBody)
+            onReceiveResult(loginResponseBody)
         }
-    }
-
-    override fun onStart() {
-        super.onStart()
-        clearAllFields()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,16 +42,17 @@ class MainActivity : AppCompatActivity() {
         setupListeners(bindingMain)
     }
 
-    override fun onResume() {
-        super.onResume()
+    override fun onStart() {
+        super.onStart()
         LocalBroadcastManager.getInstance(App.getInstanceApp()).registerReceiver(
             serverResponseLoginReceiver,
             IntentFilter(BROADCAST_ACTION_RESPONSE_LOGIN)
         )
+        clearAllFields()
     }
 
-    override fun onPause() {
-        super.onPause()
+    override fun onStop() {
+        super.onStop()
         LocalBroadcastManager.getInstance(App.getInstanceApp())
             .unregisterReceiver(serverResponseLoginReceiver)
     }
@@ -64,7 +60,12 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         bindingMain = null
-        loginAsyncTask?.cancel(false)
+        loginAsyncTask?.cancel(true)
+    }
+
+    private fun onReceiveResult(loginResponseBody: LoginResponseBody?) {
+        setVisibleProgressbar(false)
+        checkServerResponse(loginResponseBody)
     }
 
     private fun clearAllFields() {
@@ -81,38 +82,51 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupListeners(bindingMain: ActivityMainBinding) {
         bindingMain.buttonLogin.setOnClickListener {
-            checkInputData(bindingMain)
-        }
-    }
-
-    private fun checkInputData(bindingMain: ActivityMainBinding) {
-        if (isAllFieldValid(bindingMain) == true) {
-            setVisibleProgressbar(true)
             startServerLoginTask()
         }
     }
 
     private fun getEmail(): String? {
         val email = bindingMain?.editTextEmail?.text?.toString()
+
+        changeVisibleErrorLogin(email)
+
         return if (!email.isNullOrEmpty()) {
             email
         } else null
     }
 
+    private fun changeVisibleErrorLogin(email: String?) {
+        bindingMain?.inputLayoutEmail?.error =
+            getString(R.string.error_empty_email_field).takeIf { email.isNullOrEmpty() }
+    }
+
     private fun getPassword(): String? {
         val password = bindingMain?.editTextPassword?.text?.toString()
+
+        changeVisibleErrorPassword(password)
+
         return if (!password.isNullOrEmpty()) {
             password
         } else null
+    }
+
+    private fun changeVisibleErrorPassword(password: String?) {
+        bindingMain?.inputLayoutPassword?.error =
+            getString(R.string.error_empty_password_field).takeIf { password.isNullOrEmpty() }
     }
 
     private fun startServerLoginTask() {
         val email = getEmail()
         val password = getPassword()
 
-        if (email != null && password != null) {
+        val isEmailValid = email?.let { isEmailValid(it, bindingMain?.inputLayoutEmail) }
+
+        if (email != null && password != null && isEmailValid == true) {
             loginAsyncTask = SendRequestLoginTask(email, password)
             loginAsyncTask?.execute()
+
+            setVisibleProgressbar(true)
         }
     }
 
@@ -120,30 +134,12 @@ class MainActivity : AppCompatActivity() {
         bindingMain?.progressBar?.isVisible = isVisible
     }
 
-    private fun isAllFieldValid(bindingMain: ActivityMainBinding): Boolean? {
-        val email = bindingMain.editTextEmail.text
-        val password = bindingMain.editTextPassword.text
-
-        var allFieldIsValid: Boolean? = null
-
-        bindingMain.inputLayoutEmail.error =
-            getString(R.string.error_empty_email_field).takeIf { email.isNullOrEmpty() }
-        bindingMain.inputLayoutPassword.error =
-            getString(R.string.error_empty_password_field).takeIf { password.isNullOrEmpty() }
-
-        if (!email.isNullOrEmpty() && !password.isNullOrEmpty()) {
-            allFieldIsValid = isEmailValid(email, bindingMain.inputLayoutEmail)
-        }
-
-        return allFieldIsValid
-    }
-
-    private fun isEmailValid(email: CharSequence, inputLayoutEmail: TextInputLayout): Boolean {
+    private fun isEmailValid(email: CharSequence, inputLayoutEmail: TextInputLayout?): Boolean {
         val isEmailValid: Boolean
         if (PatternsCompat.EMAIL_ADDRESS.matcher(email).matches()) {
             isEmailValid = true
         } else {
-            inputLayoutEmail.error =
+            inputLayoutEmail?.error =
                 resources.getString(R.string.error_not_valid_email_field)
             isEmailValid = false
         }
@@ -159,7 +155,7 @@ class MainActivity : AppCompatActivity() {
         } else {
             if (status == ERROR_STATUS) {
                 setVisibleTextError(false)
-                showToastNoInternet(this)
+                showErrorToast(this, R.string.error_no_internet)
             } else {
                 setVisibleTextError(true)
             }

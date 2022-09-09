@@ -6,11 +6,10 @@ import android.util.Log
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.example.lesson20.*
 import com.example.lesson20.models.App
+import com.example.lesson20.models.App.Companion.getClient
 import com.example.lesson20.models.ProfileRequestBody
 import com.example.lesson20.models.ProfileResponseBody
-import com.google.gson.Gson
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -21,15 +20,13 @@ class SendRequestProfileTask(
     private val token: String
 ) : AsyncTask<Void?, String?, ProfileResponseBody?>() {
     companion object {
-        const val URL_PROFILE =
-            "https://pub.zame-dev.org/senla-training-addition/lesson-20.php?method=profile"
+        private const val URL_PROFILE =
+            "https://pub.zame-dev.org/senla-training-addition/lesson-21.php?method=profile"
+
+        const val RESULT_PROFILE_REQUEST = "RESULT_PROFILE_REQUEST"
+        const val BROADCAST_ACTION_RESPONSE_PROFILE =
+            "SendRequestProfileTask.BROADCAST_ACTION_RESPONSE_PROFILE"
     }
-
-    private val gson = Gson()
-
-    private val client = OkHttpClient
-        .Builder()
-        .build()
 
     override fun doInBackground(vararg params: Void?): ProfileResponseBody? {
         var objectResponseBodyProfile: ProfileResponseBody? = null
@@ -60,27 +57,35 @@ class SendRequestProfileTask(
             token = token
         )
 
-        val requestBodyString = gson.toJson(requestBody)
+        val requestBodyString = App.getGson().toJson(requestBody)
         val okHttpRequestBody = requestBodyString.toRequestBody(TYPE_CONTENT.toMediaType())
 
         var singInResponseBody: ProfileResponseBody? = null
 
         try {
 
-            val response = client
+            val response = getClient()
                 .newCall(getRequestProfile(okHttpRequestBody))
                 .execute()
 
             if (response.isSuccessful) {
                 val responseBodyString = response.body?.string()
-                singInResponseBody = gson.fromJson(
-                    responseBodyString,
-                    ProfileResponseBody::class.java
-                )
+
+                if (!responseBodyString.isNullOrEmpty()) {
+                    singInResponseBody = App.getGson().fromJson(
+                        responseBodyString,
+                        ProfileResponseBody::class.java
+                    )
+                }
 
             } else {
                 Log.e(TAG_INTERRUPTED_EXCEPTION, "${response.code}")
             }
+        } catch (e: SocketTimeoutException) {
+            Log.e(
+                TAG_INTERRUPTED_EXCEPTION,
+                MESSAGE_PROBLEM_WITH_SOCKET, e
+            )
         } catch (ex: IOException) {
             Log.e(
                 TAG_INTERRUPTED_EXCEPTION,

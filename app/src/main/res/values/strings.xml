@@ -13,12 +13,13 @@
 
     <string name="error_not_valid_email_field">Not valid email</string>
 
-    <string name="error_no_internet">"Sorry, no internet</string>
+    <string name="error_no_internet">Sorry, no internet</string>
+    <string name="error_unexpected">An error has occurred</string>
 
-    <string name="txt_view_email">E-mail: </string>
-    <string name="txt_view_first_name">First name: </string>
-    <string name="txt_view_last_name">Last name: </string>
-    <string name="txt_view_birth_data">Birth data: </string>
-    <string name="txt_view_notes">Notes:\n</string>
+    <string name="txt_view_email">E-mail: %s</string>
+    <string name="txt_view_first_name">First name: %s</string>
+    <string name="txt_view_last_name">Last name: %s</string>
+    <string name="txt_view_birth_data">Birth data: %s</string>
+    <string name="txt_view_notes">Notes:\n%s</string>
 
 </resources>

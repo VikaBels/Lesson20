@@ -5,17 +5,17 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Bundle
-import android.text.method.ScrollingMovementMethod
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.example.lesson20.*
 import com.example.lesson20.databinding.ActivityProfileBinding
 import com.example.lesson20.models.App
+import com.example.lesson20.models.App.Companion.getDateFormat
 import com.example.lesson20.models.ProfileResponseBody
 import com.example.lesson20.tasks.SendRequestProfileTask
-import java.text.SimpleDateFormat
-import java.util.*
+import com.example.lesson20.tasks.SendRequestProfileTask.Companion.BROADCAST_ACTION_RESPONSE_PROFILE
+import com.example.lesson20.tasks.SendRequestProfileTask.Companion.RESULT_PROFILE_REQUEST
 
 class ProfileActivity : AppCompatActivity() {
     private var bindingProfile: ActivityProfileBinding? = null
@@ -26,9 +26,7 @@ class ProfileActivity : AppCompatActivity() {
             val profileResponseBody =
                 intent.getParcelableExtra<ProfileResponseBody>(RESULT_PROFILE_REQUEST)
 
-            changeVisibleElements()
-
-            setInfoAboutPerson(profileResponseBody)
+            onReceiveResult(profileResponseBody)
         }
     }
 
@@ -42,23 +40,21 @@ class ProfileActivity : AppCompatActivity() {
 
         this.bindingProfile = bindingProfile
 
-        setScrollableNotes(bindingProfile)
-
         setupListeners(bindingProfile)
 
         setVisibleProgressbar(true)
     }
 
-    override fun onResume() {
-        super.onResume()
+    override fun onStart() {
+        super.onStart()
         LocalBroadcastManager.getInstance(App.getInstanceApp()).registerReceiver(
             serverResponseProfileReceiver,
             IntentFilter(BROADCAST_ACTION_RESPONSE_PROFILE)
         )
     }
 
-    override fun onPause() {
-        super.onPause()
+    override fun onStop() {
+        super.onStop()
         LocalBroadcastManager.getInstance(App.getInstanceApp())
             .unregisterReceiver(serverResponseProfileReceiver)
     }
@@ -66,11 +62,12 @@ class ProfileActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         bindingProfile = null
-        profileAsyncTask?.cancel(false)
+        profileAsyncTask?.cancel(true)
     }
 
-    private fun setScrollableNotes(bindingProfile: ActivityProfileBinding) {
-        bindingProfile.textViewNotes.movementMethod = ScrollingMovementMethod()
+    private fun onReceiveResult(profileResponseBody: ProfileResponseBody?) {
+        changeVisibleElements()
+        setInfoAboutPerson(profileResponseBody)
     }
 
     private fun setupListeners(bindingProfile: ActivityProfileBinding) {
@@ -81,13 +78,17 @@ class ProfileActivity : AppCompatActivity() {
 
     private fun startServerProfileTask() {
         val token = getSendingInfo(KEY_FOR_SEND_TOKEN)
-        profileAsyncTask = SendRequestProfileTask(token)
-        profileAsyncTask?.execute()
+        if (!token.isNullOrEmpty()) {
+            profileAsyncTask = SendRequestProfileTask(token)
+            profileAsyncTask?.execute()
+        } else {
+            showErrorToast(this, R.string.error_unexpected)
+        }
     }
 
-    private fun getSendingInfo(key: String): String {
+    private fun getSendingInfo(key: String): String? {
         val arguments = intent.extras
-        return arguments?.get(key).toString()
+        return arguments?.getString(key)
     }
 
     private fun changeVisibleElements() {
@@ -103,34 +104,38 @@ class ProfileActivity : AppCompatActivity() {
         bindingProfile?.buttonLogout?.isVisible = isVisible
     }
 
+    private fun getValidEmail(): String? {
+        val email: String? = if (!getSendingInfo(KEY_FOR_SEND_EMAIL).isNullOrEmpty()) {
+            getSendingInfo(KEY_FOR_SEND_EMAIL)
+        } else {
+            ""
+        }
+        return email
+    }
+
     private fun setInfoAboutPerson(responseBody: ProfileResponseBody?) {
         if (responseBody != null) {
             bindingProfile?.textViewEmail?.text =
-                refactorLine(getSendingInfo(KEY_FOR_SEND_EMAIL), R.string.txt_view_email)
+                getString(R.string.txt_view_email, getValidEmail())
 
             bindingProfile?.textViewFirstName?.text =
-                refactorLine(responseBody.firstName, R.string.txt_view_first_name)
+                getString(R.string.txt_view_first_name, responseBody.firstName)
 
             bindingProfile?.textViewLastName?.text =
-                refactorLine(responseBody.lastName, R.string.txt_view_last_name)
+                getString(R.string.txt_view_last_name, responseBody.lastName)
 
             bindingProfile?.textViewBirthDate?.text =
-                refactorLine(getFormattedDate(responseBody), R.string.txt_view_birth_data)
+                getString(R.string.txt_view_birth_data, getFormattedDate(responseBody))
 
             bindingProfile?.textViewNotes?.text =
-                refactorLine(responseBody.notes, R.string.txt_view_notes)
+                getString(R.string.txt_view_notes, responseBody.notes)
         } else {
             setVisibleProgressbar(false)
-            showToastNoInternet(this)
+            showErrorToast(this, R.string.error_no_internet)
         }
     }
 
-    private fun refactorLine(text: String?, idResource: Int): String {
-        return "${resources.getString(idResource)}$text"
-    }
-
     private fun getFormattedDate(responseBody: ProfileResponseBody): String {
-        val dateFormat = SimpleDateFormat(DATE_FORMAT, Locale.getDefault())
-        return dateFormat.format(responseBody.birthDate)
+        return getDateFormat().format(responseBody.birthDate)
     }
 }
