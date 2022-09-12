@@ -13,14 +13,13 @@ import com.example.lesson20.*
 import com.example.lesson20.databinding.ActivityMainBinding
 import com.example.lesson20.models.App
 import com.example.lesson20.models.LoginResponseBody
-import com.example.lesson20.tasks.SendRequestLoginTask
-import com.example.lesson20.tasks.SendRequestLoginTask.Companion.BROADCAST_ACTION_RESPONSE_LOGIN
-import com.example.lesson20.tasks.SendRequestLoginTask.Companion.RESULT_LOGIN_REQUEST
+import com.example.lesson20.tasks.LoginTask
+import com.example.lesson20.tasks.LoginTask.Companion.BROADCAST_ACTION_RESPONSE_LOGIN
+import com.example.lesson20.tasks.LoginTask.Companion.RESULT_LOGIN_REQUEST
 import com.google.android.material.textfield.TextInputLayout
 
 class MainActivity : AppCompatActivity() {
     private var bindingMain: ActivityMainBinding? = null
-    private var loginAsyncTask: SendRequestLoginTask? = null
 
     private val serverResponseLoginReceiver: BroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent) {
@@ -60,7 +59,6 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         bindingMain = null
-        loginAsyncTask?.cancel(true)
     }
 
     private fun onReceiveResult(loginResponseBody: LoginResponseBody?) {
@@ -123,8 +121,9 @@ class MainActivity : AppCompatActivity() {
         val isEmailValid = email?.let { isEmailValid(it, bindingMain?.inputLayoutEmail) }
 
         if (email != null && password != null && isEmailValid == true) {
-            loginAsyncTask = SendRequestLoginTask(email, password)
-            loginAsyncTask?.execute()
+            //top-level fun????
+            val loginTask = LoginTask(email, password)
+            loginTask.startTask()
 
             setVisibleProgressbar(true)
         }
@@ -155,7 +154,6 @@ class MainActivity : AppCompatActivity() {
         } else {
             if (status == ERROR_STATUS) {
                 setVisibleTextError(false)
-                showErrorToast(this, R.string.error_no_internet)
             } else {
                 setVisibleTextError(true)
             }

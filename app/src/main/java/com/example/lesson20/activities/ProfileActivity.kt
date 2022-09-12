@@ -13,13 +13,12 @@ import com.example.lesson20.databinding.ActivityProfileBinding
 import com.example.lesson20.models.App
 import com.example.lesson20.models.App.Companion.getDateFormat
 import com.example.lesson20.models.ProfileResponseBody
-import com.example.lesson20.tasks.SendRequestProfileTask
-import com.example.lesson20.tasks.SendRequestProfileTask.Companion.BROADCAST_ACTION_RESPONSE_PROFILE
-import com.example.lesson20.tasks.SendRequestProfileTask.Companion.RESULT_PROFILE_REQUEST
+import com.example.lesson20.tasks.ProfileTask
+import com.example.lesson20.tasks.ProfileTask.Companion.BROADCAST_ACTION_RESPONSE_PROFILE
+import com.example.lesson20.tasks.ProfileTask.Companion.RESULT_PROFILE_REQUEST
 
 class ProfileActivity : AppCompatActivity() {
     private var bindingProfile: ActivityProfileBinding? = null
-    private var profileAsyncTask: SendRequestProfileTask? = null
 
     private val serverResponseProfileReceiver: BroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent) {
@@ -62,7 +61,6 @@ class ProfileActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         bindingProfile = null
-        profileAsyncTask?.cancel(true)
     }
 
     private fun onReceiveResult(profileResponseBody: ProfileResponseBody?) {
@@ -79,10 +77,12 @@ class ProfileActivity : AppCompatActivity() {
     private fun startServerProfileTask() {
         val token = getSendingInfo(KEY_FOR_SEND_TOKEN)
         if (!token.isNullOrEmpty()) {
-            profileAsyncTask = SendRequestProfileTask(token)
-            profileAsyncTask?.execute()
+            //top-level fun????
+            val profileTask = ProfileTask(token)
+            profileTask.startTask()
+
         } else {
-            showErrorToast(this, R.string.error_unexpected)
+            showErrorToast(this, resources.getString(R.string.error_unexpected))
         }
     }
 
@@ -129,9 +129,6 @@ class ProfileActivity : AppCompatActivity() {
 
             bindingProfile?.textViewNotes?.text =
                 getString(R.string.txt_view_notes, responseBody.notes)
-        } else {
-            setVisibleProgressbar(false)
-            showErrorToast(this, R.string.error_no_internet)
         }
     }
 
