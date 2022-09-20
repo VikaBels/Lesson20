@@ -90,6 +90,7 @@ class ProfileTask(
 
                 if (it.error != null) {
                     getResponseBody(null)
+                    sendBroadcastPersonInfo(it)
                     toastUtil(App.getInstanceApp(), getTextError(it))
                 }
 

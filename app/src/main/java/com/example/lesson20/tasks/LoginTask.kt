@@ -91,6 +91,7 @@ class LoginTask(
 
                 if (it.error != null) {
                     getResponseBody(null)
+                    sendBroadcastResponseBody(it)
                     toastUtil(App.getInstanceApp(), getTextError(it))
                 }
 
