@@ -84,6 +84,21 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun startServerLoginTask() {
+        val email = getEmail()
+        val password = getPassword()
+
+        val isEmailValid = email?.let { isEmailValid(it, bindingMain?.inputLayoutEmail) }
+
+        if (email != null && password != null && isEmailValid == true) {
+
+            val loginTask = LoginTask(email, password)
+            loginTask.startTask()
+
+            setVisibleProgressbar(true)
+        }
+    }
+
     private fun getEmail(): String? {
         val email = bindingMain?.editTextEmail?.text?.toString()
 
@@ -114,21 +129,6 @@ class MainActivity : AppCompatActivity() {
             getString(R.string.error_empty_password_field).takeIf { password.isNullOrEmpty() }
     }
 
-    private fun startServerLoginTask() {
-        val email = getEmail()
-        val password = getPassword()
-
-        val isEmailValid = email?.let { isEmailValid(it, bindingMain?.inputLayoutEmail) }
-
-        if (email != null && password != null && isEmailValid == true) {
-            //top-level fun????
-            val loginTask = LoginTask(email, password)
-            loginTask.startTask()
-
-            setVisibleProgressbar(true)
-        }
-    }
-
     private fun setVisibleProgressbar(isVisible: Boolean) {
         bindingMain?.progressBar?.isVisible = isVisible
     }
@@ -152,7 +152,7 @@ class MainActivity : AppCompatActivity() {
         if (token != null) {
             startProfileActivity(token)
         } else {
-            if (status == ERROR_STATUS) {
+            if (status == KEY_ERROR_EXIST) {
                 setVisibleTextError(false)
             } else {
                 setVisibleTextError(true)

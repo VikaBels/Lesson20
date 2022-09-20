@@ -9,8 +9,6 @@ import com.example.lesson20.models.App
 import com.example.lesson20.models.ProfileRequestBody
 import com.example.lesson20.models.ProfileResponseBody
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.Request
-import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 
 class ProfileTask(
@@ -37,11 +35,10 @@ class ProfileTask(
         return objectResponseBodyProfile
     }
 
-    //rename
-    private fun onPostExecute(result: Task<ProfileResponseBody?>?): ProfileResponseBody? {
-        sendBroadcastPersonInfo(result?.result)
-        //for type "it" in continueWith. mb don't need ???
-        return result?.result
+    private fun getResponseBody(result: Task<ProfileResponseBody?>?): ProfileResponseBody? {
+        val responseBody = result?.result
+        sendBroadcastPersonInfo(responseBody)
+        return responseBody
     }
 
     private fun sendBroadcastPersonInfo(objectResponseBodyProfile: ProfileResponseBody?) {
@@ -62,7 +59,7 @@ class ProfileTask(
 
 
         val response = App.getClient()
-            .newCall(getRequestProfile(okHttpRequestBody))
+            .newCall(getRequest(okHttpRequestBody, URL_PROFILE))
             .execute()
 
         if (response.isSuccessful) {
@@ -82,33 +79,24 @@ class ProfileTask(
         return singInResponseBody
     }
 
-    private fun getRequestProfile(okHttpRequestBody: RequestBody): Request {
-        return Request.Builder()
-            .post(okHttpRequestBody)
-            .url(URL_PROFILE)
-            .build()
-    }
-
     fun startTask() {
         Task.callInBackground {
             getProfileResponseBody()
         }.onSuccess({
-            onPostExecute(it)
+            getResponseBody(it)
         }, Task.UI_THREAD_EXECUTOR)
             .continueWith({
 
                 if (it.error != null) {
-                    onPostExecute(null)
+                    getResponseBody(null)
                     showErrorToast(App.getInstanceApp(), getTextError(it))
                 }
 
             }, Task.UI_THREAD_EXECUTOR)
     }
 
-    //in file. exist in this file and in LoginTask
-    private fun getTextError(help: Task<ProfileResponseBody?>): String? {
-
-        val textError: String? = when (help.error.javaClass.name) {
+    private fun getTextError(profileResponseBody: Task<ProfileResponseBody?>): String? {
+        val textError = when (profileResponseBody.error.javaClass.name) {
             ERROR_TYPE_UNKNOWN_HOST_EXCEPTION -> {
                 MESSAGE_NO_INTERNET_EXCEPTION
             }
@@ -116,7 +104,7 @@ class ProfileTask(
                 MESSAGE_PROBLEM_WITH_SOCKET
             }
             else -> {
-                help.error.message
+                profileResponseBody.error.message
             }
         }
         return textError

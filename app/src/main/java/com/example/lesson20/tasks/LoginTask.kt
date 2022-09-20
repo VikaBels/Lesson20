@@ -9,8 +9,6 @@ import com.example.lesson20.models.App
 import com.example.lesson20.models.LoginRequestBody
 import com.example.lesson20.models.LoginResponseBody
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.Request
-import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 
 class LoginTask(
@@ -38,10 +36,8 @@ class LoginTask(
         return loginResponseBody
     }
 
-    //rename
-    private fun onPostExecute(result: Task<LoginResponseBody?>?): LoginResponseBody {
-        val responseBody = result?.result ?: LoginResponseBody(ERROR_STATUS, null)
-
+    private fun getResponseBody(result: Task<LoginResponseBody?>?): LoginResponseBody {
+        val responseBody = result?.result ?: LoginResponseBody(KEY_ERROR_EXIST, null)
         sendBroadcastResponseBody(responseBody)
         return responseBody
     }
@@ -64,7 +60,7 @@ class LoginTask(
         var singInResponseBody: LoginResponseBody? = null
 
         val response = App.getClient()
-            .newCall(getRequestLogin(okHttpRequestBody))
+            .newCall(getRequest(okHttpRequestBody,URL_LOGIN))
             .execute()
 
         if (response.isSuccessful) {
@@ -84,34 +80,24 @@ class LoginTask(
         return singInResponseBody
     }
 
-    private fun getRequestLogin(okHttpRequestBody: RequestBody): Request {
-        return Request.Builder()
-            .post(okHttpRequestBody)
-            .url(URL_LOGIN)
-            .build()
-    }
-
-    
     fun startTask() {
         Task.callInBackground {
             getLoginResponseBody()
         }.onSuccess({
-            onPostExecute(it)
+            getResponseBody(it)
         }, Task.UI_THREAD_EXECUTOR)
             .continueWith({
 
                 if (it.error != null) {
-                    onPostExecute(null)
+                    getResponseBody(null)
                     showErrorToast(App.getInstanceApp(), getTextError(it))
                 }
 
             }, Task.UI_THREAD_EXECUTOR)
     }
 
-    //in file. exist in this file and in ProfileTask
-    private fun getTextError(help: Task<LoginResponseBody>): String? {
-
-        val textError: String? = when (help.error.javaClass.name) {
+    private fun getTextError(loginResponseBody: Task<LoginResponseBody?>): String? {
+        val textError = when (loginResponseBody.error.javaClass.name) {
             ERROR_TYPE_UNKNOWN_HOST_EXCEPTION -> {
                 MESSAGE_NO_INTERNET_EXCEPTION
             }
@@ -119,7 +105,7 @@ class LoginTask(
                 MESSAGE_PROBLEM_WITH_SOCKET
             }
             else -> {
-                help.error.message
+                loginResponseBody.error.message
             }
         }
         return textError

@@ -3,8 +3,7 @@ package com.example.lesson20
 const val TYPE_CONTENT = "application/json; charset=utf-8"
 const val DATE_FORMAT = "dd.MM.yyyy HH:mm:ss"
 
-//mb rename
-const val ERROR_STATUS = "error exist"
+const val KEY_ERROR_EXIST = "error exist"
 
 const val TAG_INTERRUPTED_EXCEPTION = "CommunicatingWithServer"
 

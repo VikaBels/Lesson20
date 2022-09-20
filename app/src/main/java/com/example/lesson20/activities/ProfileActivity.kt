@@ -77,7 +77,7 @@ class ProfileActivity : AppCompatActivity() {
     private fun startServerProfileTask() {
         val token = getSendingInfo(KEY_FOR_SEND_TOKEN)
         if (!token.isNullOrEmpty()) {
-            //top-level fun????
+
             val profileTask = ProfileTask(token)
             profileTask.startTask()
 
@@ -105,7 +105,7 @@ class ProfileActivity : AppCompatActivity() {
     }
 
     private fun getValidEmail(): String? {
-        val email: String? = if (!getSendingInfo(KEY_FOR_SEND_EMAIL).isNullOrEmpty()) {
+        val email = if (!getSendingInfo(KEY_FOR_SEND_EMAIL).isNullOrEmpty()) {
             getSendingInfo(KEY_FOR_SEND_EMAIL)
         } else {
             ""
