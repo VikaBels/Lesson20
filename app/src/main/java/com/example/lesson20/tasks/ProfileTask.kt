@@ -36,14 +36,14 @@ class ProfileTask(
     }
 
     private fun getResponseBody(result: Task<ProfileResponseBody?>?): ProfileResponseBody? {
-        val responseBody = result?.result
-        sendBroadcastPersonInfo(responseBody)
-        return responseBody
+        return result?.result
     }
 
-    private fun sendBroadcastPersonInfo(objectResponseBodyProfile: ProfileResponseBody?) {
+    private fun sendBroadcastPersonInfo(result: Task<ProfileResponseBody?>) {
         val intent = Intent(BROADCAST_ACTION_RESPONSE_PROFILE)
-        intent.putExtra(RESULT_PROFILE_REQUEST, objectResponseBodyProfile)
+        val responseBody = getResponseBody(result)
+
+        intent.putExtra(RESULT_PROFILE_REQUEST, responseBody)
         LocalBroadcastManager.getInstance(App.getInstanceApp()).sendBroadcast(intent)
     }
 
@@ -59,7 +59,7 @@ class ProfileTask(
 
 
         val response = App.getClient()
-            .newCall(getRequest(okHttpRequestBody, URL_PROFILE))
+            .newCall(requestUtil(okHttpRequestBody, URL_PROFILE))
             .execute()
 
         if (response.isSuccessful) {
@@ -83,13 +83,14 @@ class ProfileTask(
         Task.callInBackground {
             getProfileResponseBody()
         }.onSuccess({
+            sendBroadcastPersonInfo(it)
             getResponseBody(it)
         }, Task.UI_THREAD_EXECUTOR)
             .continueWith({
 
                 if (it.error != null) {
                     getResponseBody(null)
-                    showErrorToast(App.getInstanceApp(), getTextError(it))
+                    toastUtil(App.getInstanceApp(), getTextError(it))
                 }
 
             }, Task.UI_THREAD_EXECUTOR)

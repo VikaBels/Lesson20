@@ -37,13 +37,13 @@ class LoginTask(
     }
 
     private fun getResponseBody(result: Task<LoginResponseBody?>?): LoginResponseBody {
-        val responseBody = result?.result ?: LoginResponseBody(KEY_ERROR_EXIST, null)
-        sendBroadcastResponseBody(responseBody)
-        return responseBody
+        return result?.result ?: LoginResponseBody(KEY_ERROR_EXIST, null)
     }
 
-    private fun sendBroadcastResponseBody(responseBody: LoginResponseBody?) {
+    private fun sendBroadcastResponseBody(result: Task<LoginResponseBody?>?) {
         val intent = Intent(BROADCAST_ACTION_RESPONSE_LOGIN)
+        val responseBody = getResponseBody(result)
+
         intent.putExtra(RESULT_LOGIN_REQUEST, responseBody)
         LocalBroadcastManager.getInstance(App.getInstanceApp()).sendBroadcast(intent)
     }
@@ -60,7 +60,7 @@ class LoginTask(
         var singInResponseBody: LoginResponseBody? = null
 
         val response = App.getClient()
-            .newCall(getRequest(okHttpRequestBody,URL_LOGIN))
+            .newCall(requestUtil(okHttpRequestBody, URL_LOGIN))
             .execute()
 
         if (response.isSuccessful) {
@@ -84,13 +84,14 @@ class LoginTask(
         Task.callInBackground {
             getLoginResponseBody()
         }.onSuccess({
+            sendBroadcastResponseBody(it)
             getResponseBody(it)
         }, Task.UI_THREAD_EXECUTOR)
             .continueWith({
 
                 if (it.error != null) {
                     getResponseBody(null)
-                    showErrorToast(App.getInstanceApp(), getTextError(it))
+                    toastUtil(App.getInstanceApp(), getTextError(it))
                 }
 
             }, Task.UI_THREAD_EXECUTOR)

@@ -82,7 +82,7 @@ class ProfileActivity : AppCompatActivity() {
             profileTask.startTask()
 
         } else {
-            showErrorToast(this, resources.getString(R.string.error_unexpected))
+            toastUtil(this, resources.getString(R.string.error_unexpected))
         }
     }
 
