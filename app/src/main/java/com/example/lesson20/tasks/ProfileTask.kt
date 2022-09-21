@@ -1,29 +1,23 @@
 package com.example.lesson20.tasks
 
-import android.content.Intent
 import android.util.Log
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import bolts.CancellationToken
 import bolts.Task
 import com.example.lesson20.*
-import com.example.lesson20.models.App
+import com.example.lesson20.App
 import com.example.lesson20.models.ProfileRequestBody
 import com.example.lesson20.models.ProfileResponseBody
+import com.example.lesson20.utils.getRequest
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 
-class ProfileTask(
-    private val token: String
-) {
+class ProfileTask {
     companion object {
         private const val URL_PROFILE =
             "https://pub.zame-dev.org/senla-training-addition/lesson-21.php?method=profile"
-
-        const val RESULT_PROFILE_REQUEST = "RESULT_PROFILE_REQUEST"
-        const val BROADCAST_ACTION_RESPONSE_PROFILE =
-            "SendRequestProfileTask.BROADCAST_ACTION_RESPONSE_PROFILE"
     }
 
-    private fun getProfileResponseBody(): ProfileResponseBody? {
+    private fun getProfileResponseBody(token: String): ProfileResponseBody? {
         var objectResponseBodyProfile: ProfileResponseBody? = null
 
         try {
@@ -33,18 +27,6 @@ class ProfileTask(
         }
 
         return objectResponseBodyProfile
-    }
-
-    private fun getResponseBody(result: Task<ProfileResponseBody?>?): ProfileResponseBody? {
-        return result?.result
-    }
-
-    private fun sendBroadcastPersonInfo(result: Task<ProfileResponseBody?>) {
-        val intent = Intent(BROADCAST_ACTION_RESPONSE_PROFILE)
-        val responseBody = getResponseBody(result)
-
-        intent.putExtra(RESULT_PROFILE_REQUEST, responseBody)
-        LocalBroadcastManager.getInstance(App.getInstanceApp()).sendBroadcast(intent)
     }
 
     private fun sendRequestProfile(token: String): ProfileResponseBody? {
@@ -57,9 +39,8 @@ class ProfileTask(
 
         var singInResponseBody: ProfileResponseBody? = null
 
-
         val response = App.getClient()
-            .newCall(requestUtil(okHttpRequestBody, URL_PROFILE))
+            .newCall(getRequest(okHttpRequestBody, URL_PROFILE))
             .execute()
 
         if (response.isSuccessful) {
@@ -79,36 +60,13 @@ class ProfileTask(
         return singInResponseBody
     }
 
-    fun startTask() {
-        Task.callInBackground {
-            getProfileResponseBody()
-        }.onSuccess({
-            sendBroadcastPersonInfo(it)
-            getResponseBody(it)
-        }, Task.UI_THREAD_EXECUTOR)
-            .continueWith({
-
-                if (it.error != null) {
-                    getResponseBody(null)
-                    sendBroadcastPersonInfo(it)
-                    toastUtil(App.getInstanceApp(), getTextError(it))
-                }
-
+    fun startTask(cancellationToken: CancellationToken, token: String): Task<ProfileResponseBody> {
+        return Task
+            .callInBackground({
+                getProfileResponseBody(token)
+            }, cancellationToken)
+            .onSuccess({
+                it?.result
             }, Task.UI_THREAD_EXECUTOR)
-    }
-
-    private fun getTextError(profileResponseBody: Task<ProfileResponseBody?>): String? {
-        val textError = when (profileResponseBody.error.javaClass.name) {
-            ERROR_TYPE_UNKNOWN_HOST_EXCEPTION -> {
-                MESSAGE_NO_INTERNET_EXCEPTION
-            }
-            ERROR_TYPE_SOCKET_TIMEOUT_EXCEPTION -> {
-                MESSAGE_PROBLEM_WITH_SOCKET
-            }
-            else -> {
-                profileResponseBody.error.message
-            }
-        }
-        return textError
     }
 }

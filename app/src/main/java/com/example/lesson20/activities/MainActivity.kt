@@ -1,34 +1,24 @@
 package com.example.lesson20.activities
 
-import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.os.Bundle
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.util.PatternsCompat
 import androidx.core.view.isVisible
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import bolts.CancellationTokenSource
+import bolts.Task
 import com.example.lesson20.*
 import com.example.lesson20.databinding.ActivityMainBinding
-import com.example.lesson20.models.App
 import com.example.lesson20.models.LoginResponseBody
 import com.example.lesson20.tasks.LoginTask
-import com.example.lesson20.tasks.LoginTask.Companion.BROADCAST_ACTION_RESPONSE_LOGIN
-import com.example.lesson20.tasks.LoginTask.Companion.RESULT_LOGIN_REQUEST
-import com.google.android.material.textfield.TextInputLayout
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 
 class MainActivity : AppCompatActivity() {
     private var bindingMain: ActivityMainBinding? = null
 
-    private val serverResponseLoginReceiver: BroadcastReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent) {
-            val loginResponseBody =
-                intent.getParcelableExtra<LoginResponseBody>(RESULT_LOGIN_REQUEST)
-
-            onReceiveResult(loginResponseBody)
-        }
-    }
+    private val cancellationTokenSourceMain: CancellationTokenSource = CancellationTokenSource()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,24 +31,10 @@ class MainActivity : AppCompatActivity() {
         setupListeners(bindingMain)
     }
 
-    override fun onStart() {
-        super.onStart()
-        LocalBroadcastManager.getInstance(App.getInstanceApp()).registerReceiver(
-            serverResponseLoginReceiver,
-            IntentFilter(BROADCAST_ACTION_RESPONSE_LOGIN)
-        )
-        clearAllFields()
-    }
-
-    override fun onStop() {
-        super.onStop()
-        LocalBroadcastManager.getInstance(App.getInstanceApp())
-            .unregisterReceiver(serverResponseLoginReceiver)
-    }
-
     override fun onDestroy() {
         super.onDestroy()
         bindingMain = null
+        cancellationTokenSourceMain.cancel()
     }
 
     private fun onReceiveResult(loginResponseBody: LoginResponseBody?) {
@@ -66,12 +42,9 @@ class MainActivity : AppCompatActivity() {
         checkServerResponse(loginResponseBody)
     }
 
-    private fun clearAllFields() {
+    private fun setDefaultValues() {
         bindingMain?.apply {
             textViewError.isVisible = false
-
-            editTextEmail.text = null
-            editTextPassword.text = null
 
             editTextPassword.clearFocus()
             editTextEmail.clearFocus()
@@ -85,64 +58,94 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startServerLoginTask() {
-        val email = getEmail()
-        val password = getPassword()
+        val email = getValidEmail()
+        val password = getValidPassword()
 
-        val isEmailValid = email?.let { isEmailValid(it, bindingMain?.inputLayoutEmail) }
+        if (email != null && password != null) {
 
-        if (email != null && password != null && isEmailValid == true) {
+            val loginTask = LoginTask()
 
-            val loginTask = LoginTask(email, password)
-            loginTask.startTask()
+            loginTask.startTask(cancellationTokenSourceMain.token, email, password)
+                .continueWith({
+
+                    val loginResponseBody = it.result ?: LoginResponseBody(KEY_ERROR_EXIST, null)
+                    onReceiveResult(loginResponseBody)
+
+                    if (it.error != null) {
+                        showToastError(getTextError(it))
+                    }
+
+                }, Task.UI_THREAD_EXECUTOR)
 
             setVisibleProgressbar(true)
         }
     }
 
-    private fun getEmail(): String? {
+    private fun showToastError(textError: String?) {
+        val duration = Toast.LENGTH_SHORT
+        val toast = Toast.makeText(this, textError, duration)
+        toast.show()
+    }
+
+    private fun getValidEmail(): String? {
         val email = bindingMain?.editTextEmail?.text?.toString()
 
-        changeVisibleErrorLogin(email)
-
-        return if (!email.isNullOrEmpty()) {
-            email
-        } else null
+        return when {
+            email.isNullOrEmpty() -> {
+                showEmailError(R.string.error_empty_email_field)
+                null
+            }
+            !isMatchesEmailPattern(email) -> {
+                showEmailError(R.string.error_not_valid_email_field)
+                null
+            }
+            else -> email
+        }
     }
 
-    private fun changeVisibleErrorLogin(email: String?) {
+    private fun isMatchesEmailPattern(email: String): Boolean {
+        return PatternsCompat.EMAIL_ADDRESS.matcher(email).matches()
+    }
+
+    private fun showEmailError(idResource: Int) {
         bindingMain?.inputLayoutEmail?.error =
-            getString(R.string.error_empty_email_field).takeIf { email.isNullOrEmpty() }
+            resources.getString(idResource)
     }
 
-    private fun getPassword(): String? {
+    private fun getValidPassword(): String? {
         val password = bindingMain?.editTextPassword?.text?.toString()
 
-        changeVisibleErrorPassword(password)
-
-        return if (!password.isNullOrEmpty()) {
-            password
-        } else null
+        return when {
+            password.isNullOrEmpty() -> {
+                showPasswordError(R.string.error_empty_password_field)
+                null
+            }
+            else -> password
+        }
     }
 
-    private fun changeVisibleErrorPassword(password: String?) {
+    private fun showPasswordError(idResource: Int) {
         bindingMain?.inputLayoutPassword?.error =
-            getString(R.string.error_empty_password_field).takeIf { password.isNullOrEmpty() }
+            getString(idResource)
+    }
+
+    private fun getTextError(loginResponseBody: Task<LoginResponseBody?>): String? {
+        val textError = when (loginResponseBody.error) {
+            is UnknownHostException -> {
+                resources.getString(R.string.error_no_internet)
+            }
+            is SocketTimeoutException -> {
+                resources.getString(R.string.error_problem_with_socket)
+            }
+            else -> {
+                loginResponseBody.error.message
+            }
+        }
+        return textError
     }
 
     private fun setVisibleProgressbar(isVisible: Boolean) {
         bindingMain?.progressBar?.isVisible = isVisible
-    }
-
-    private fun isEmailValid(email: CharSequence, inputLayoutEmail: TextInputLayout?): Boolean {
-        val isEmailValid: Boolean
-        if (PatternsCompat.EMAIL_ADDRESS.matcher(email).matches()) {
-            isEmailValid = true
-        } else {
-            inputLayoutEmail?.error =
-                resources.getString(R.string.error_not_valid_email_field)
-            isEmailValid = false
-        }
-        return isEmailValid
     }
 
     private fun checkServerResponse(loginResponseBody: LoginResponseBody?) {
@@ -174,5 +177,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         startActivity(intent)
+        setDefaultValues()
     }
 }

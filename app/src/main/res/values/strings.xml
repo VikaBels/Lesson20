@@ -14,6 +14,8 @@
     <string name="error_not_valid_email_field">Not valid email</string>
 
     <string name="error_no_internet">Sorry, no internet</string>
+    <string name="error_problem_with_socket">Sorry, problem with socket</string>
+
     <string name="error_unexpected">An error has occurred</string>
 
     <string name="txt_view_email">E-mail: %s</string>

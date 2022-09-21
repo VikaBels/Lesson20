@@ -1,66 +1,44 @@
 package com.example.lesson20.activities
 
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import bolts.CancellationTokenSource
+import bolts.Task
 import com.example.lesson20.*
 import com.example.lesson20.databinding.ActivityProfileBinding
-import com.example.lesson20.models.App
-import com.example.lesson20.models.App.Companion.getDateFormat
+import com.example.lesson20.App.Companion.getDateFormat
 import com.example.lesson20.models.ProfileResponseBody
 import com.example.lesson20.tasks.ProfileTask
-import com.example.lesson20.tasks.ProfileTask.Companion.BROADCAST_ACTION_RESPONSE_PROFILE
-import com.example.lesson20.tasks.ProfileTask.Companion.RESULT_PROFILE_REQUEST
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 
 class ProfileActivity : AppCompatActivity() {
     private var bindingProfile: ActivityProfileBinding? = null
+    private var arguments: Bundle? = null
 
-    private val serverResponseProfileReceiver: BroadcastReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent) {
-            val profileResponseBody =
-                intent.getParcelableExtra<ProfileResponseBody>(RESULT_PROFILE_REQUEST)
-
-            onReceiveResult(profileResponseBody)
-        }
-    }
+    private val cancellationTokenSourceProfile: CancellationTokenSource = CancellationTokenSource()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        startServerProfileTask()
 
         val bindingProfile = ActivityProfileBinding.inflate(layoutInflater)
         setContentView(bindingProfile.root)
 
         this.bindingProfile = bindingProfile
+        arguments = intent.extras
 
         setupListeners(bindingProfile)
 
+        startServerProfileTask()
+
         setVisibleProgressbar(true)
-    }
-
-    override fun onStart() {
-        super.onStart()
-        LocalBroadcastManager.getInstance(App.getInstanceApp()).registerReceiver(
-            serverResponseProfileReceiver,
-            IntentFilter(BROADCAST_ACTION_RESPONSE_PROFILE)
-        )
-    }
-
-    override fun onStop() {
-        super.onStop()
-        LocalBroadcastManager.getInstance(App.getInstanceApp())
-            .unregisterReceiver(serverResponseProfileReceiver)
     }
 
     override fun onDestroy() {
         super.onDestroy()
         bindingProfile = null
+        cancellationTokenSourceProfile.cancel()
     }
 
     private fun onReceiveResult(profileResponseBody: ProfileResponseBody?) {
@@ -78,16 +56,44 @@ class ProfileActivity : AppCompatActivity() {
         val token = getSendingInfo(KEY_FOR_SEND_TOKEN)
         if (!token.isNullOrEmpty()) {
 
-            val profileTask = ProfileTask(token)
-            profileTask.startTask()
+            val profileTask = ProfileTask()
+
+            profileTask.startTask(cancellationTokenSourceProfile.token, token)
+                .continueWith({
+
+                    onReceiveResult(it?.result)
+
+                    if (it.error != null) {
+                        setTextError(getTextError(it))
+                    }
+
+                }, Task.UI_THREAD_EXECUTOR)
 
         } else {
-            toastUtil(this, resources.getString(R.string.error_unexpected))
+            setTextError(resources.getString(R.string.error_unexpected))
         }
     }
 
+    private fun getTextError(profileResponseBody: Task<ProfileResponseBody?>): String? {
+        val textError = when (profileResponseBody.error) {
+            is UnknownHostException -> {
+                resources.getString(R.string.error_no_internet)
+            }
+            is SocketTimeoutException -> {
+                resources.getString(R.string.error_problem_with_socket)
+            }
+            else -> {
+                profileResponseBody.error.message
+            }
+        }
+        return textError
+    }
+
+    private fun setTextError(textError: String?) {
+        bindingProfile?.textViewError?.text = textError
+    }
+
     private fun getSendingInfo(key: String): String? {
-        val arguments = intent.extras
         return arguments?.getString(key)
     }
 
@@ -104,13 +110,8 @@ class ProfileActivity : AppCompatActivity() {
         bindingProfile?.buttonLogout?.isVisible = isVisible
     }
 
-    private fun getValidEmail(): String? {
-        val email = if (!getSendingInfo(KEY_FOR_SEND_EMAIL).isNullOrEmpty()) {
-            getSendingInfo(KEY_FOR_SEND_EMAIL)
-        } else {
-            ""
-        }
-        return email
+    private fun getValidEmail(): String {
+        return getSendingInfo(KEY_FOR_SEND_EMAIL).orEmpty()
     }
 
     private fun setInfoAboutPerson(responseBody: ProfileResponseBody?) {
