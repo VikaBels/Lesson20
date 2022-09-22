@@ -4,14 +4,18 @@ import android.util.Log
 import bolts.CancellationToken
 import bolts.Task
 import com.example.lesson20.*
-import com.example.lesson20.App
 import com.example.lesson20.models.ProfileRequestBody
 import com.example.lesson20.models.ProfileResponseBody
 import com.example.lesson20.utils.getRequest
+import com.google.gson.Gson
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
 
-class ProfileTask {
+class ProfileTask(
+    private val gson: Gson,
+    private val client: OkHttpClient
+) {
     companion object {
         private const val URL_PROFILE =
             "https://pub.zame-dev.org/senla-training-addition/lesson-21.php?method=profile"
@@ -34,12 +38,12 @@ class ProfileTask {
             token = token
         )
 
-        val requestBodyString = App.getGson().toJson(requestBody)
+        val requestBodyString = gson.toJson(requestBody)
         val okHttpRequestBody = requestBodyString.toRequestBody(TYPE_CONTENT.toMediaType())
 
         var singInResponseBody: ProfileResponseBody? = null
 
-        val response = App.getClient()
+        val response = client
             .newCall(getRequest(okHttpRequestBody, URL_PROFILE))
             .execute()
 
@@ -47,7 +51,7 @@ class ProfileTask {
             val responseBodyString = response.body?.string()
 
             if (!responseBodyString.isNullOrEmpty()) {
-                singInResponseBody = App.getGson().fromJson(
+                singInResponseBody = gson.fromJson(
                     responseBodyString,
                     ProfileResponseBody::class.java
                 )
@@ -65,8 +69,5 @@ class ProfileTask {
             .callInBackground({
                 getProfileResponseBody(token)
             }, cancellationToken)
-            .onSuccess({
-                it?.result
-            }, Task.UI_THREAD_EXECUTOR)
     }
 }

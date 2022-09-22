@@ -12,13 +12,18 @@ import com.example.lesson20.*
 import com.example.lesson20.databinding.ActivityMainBinding
 import com.example.lesson20.models.LoginResponseBody
 import com.example.lesson20.tasks.LoginTask
-import java.net.SocketTimeoutException
-import java.net.UnknownHostException
+import com.example.lesson20.utils.getTextError
 
 class MainActivity : AppCompatActivity() {
+    companion object {
+        const val TEXTVIEW_VISIBLE_KEY = "TEXTVIEW_VISIBLE_KEY"
+    }
+
     private var bindingMain: ActivityMainBinding? = null
 
     private val cancellationTokenSourceMain: CancellationTokenSource = CancellationTokenSource()
+    private val loginTask = LoginTask(App.getGson(), App.getClient())
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -28,13 +33,32 @@ class MainActivity : AppCompatActivity() {
 
         this.bindingMain = bindingMain
 
+        checkVisibilityTextError(savedInstanceState)
+
         setupListeners(bindingMain)
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+
+        val isVisibleError = bindingMain?.textViewError?.isVisible
+
+        if (isVisibleError != null) {
+            outState.putBoolean(TEXTVIEW_VISIBLE_KEY, isVisibleError)
+        }
     }
 
     override fun onDestroy() {
         super.onDestroy()
         bindingMain = null
         cancellationTokenSourceMain.cancel()
+    }
+
+    private fun checkVisibilityTextError(savedInstanceState: Bundle?) {
+        if (savedInstanceState != null && savedInstanceState.containsKey(TEXTVIEW_VISIBLE_KEY)) {
+            val isVisibleError = savedInstanceState.getBoolean(TEXTVIEW_VISIBLE_KEY)
+            setVisibleTextError(isVisibleError)
+        }
     }
 
     private fun onReceiveResult(loginResponseBody: LoginResponseBody?) {
@@ -63,21 +87,19 @@ class MainActivity : AppCompatActivity() {
 
         if (email != null && password != null) {
 
-            val loginTask = LoginTask()
+            setVisibleProgressbar(true)
 
             loginTask.startTask(cancellationTokenSourceMain.token, email, password)
                 .continueWith({
 
-                    val loginResponseBody = it.result ?: LoginResponseBody(KEY_ERROR_EXIST, null)
-                    onReceiveResult(loginResponseBody)
+                    onReceiveResult(it.result)
 
                     if (it.error != null) {
-                        showToastError(getTextError(it))
+                        setVisibleTextError(false)
+                        showToastError(getTextError(it.error))
                     }
 
                 }, Task.UI_THREAD_EXECUTOR)
-
-            setVisibleProgressbar(true)
         }
     }
 
@@ -129,36 +151,20 @@ class MainActivity : AppCompatActivity() {
             getString(idResource)
     }
 
-    private fun getTextError(loginResponseBody: Task<LoginResponseBody?>): String? {
-        val textError = when (loginResponseBody.error) {
-            is UnknownHostException -> {
-                resources.getString(R.string.error_no_internet)
-            }
-            is SocketTimeoutException -> {
-                resources.getString(R.string.error_problem_with_socket)
-            }
-            else -> {
-                loginResponseBody.error.message
-            }
-        }
-        return textError
-    }
-
     private fun setVisibleProgressbar(isVisible: Boolean) {
         bindingMain?.progressBar?.isVisible = isVisible
     }
 
     private fun checkServerResponse(loginResponseBody: LoginResponseBody?) {
         val token = loginResponseBody?.token
-        val status = loginResponseBody?.status
 
-        if (token != null) {
-            startProfileActivity(token)
-        } else {
-            if (status == KEY_ERROR_EXIST) {
-                setVisibleTextError(false)
-            } else {
+        when (loginResponseBody?.token) {
+            null -> {
                 setVisibleTextError(true)
+            }
+            else -> {
+                setVisibleTextError(false)
+                startProfileActivity(token)
             }
         }
     }
@@ -167,7 +173,7 @@ class MainActivity : AppCompatActivity() {
         bindingMain?.textViewError?.isVisible = isVisible
     }
 
-    private fun startProfileActivity(token: String) {
+    private fun startProfileActivity(token: String?) {
         val intent = Intent(this, ProfileActivity::class.java)
         val email = bindingMain?.editTextEmail?.text?.toString()
 

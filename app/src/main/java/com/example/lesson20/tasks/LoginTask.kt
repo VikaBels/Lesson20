@@ -4,14 +4,18 @@ import android.util.Log
 import bolts.CancellationToken
 import bolts.Task
 import com.example.lesson20.*
-import com.example.lesson20.App
 import com.example.lesson20.models.LoginRequestBody
 import com.example.lesson20.models.LoginResponseBody
 import com.example.lesson20.utils.getRequest
+import com.google.gson.Gson
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
 
-class LoginTask {
+class LoginTask(
+    private val gson: Gson,
+    private val client: OkHttpClient
+) {
     companion object {
         private const val URL_LOGIN =
             "https://pub.zame-dev.org/senla-training-addition/lesson-21.php?method=login"
@@ -35,12 +39,12 @@ class LoginTask {
             password = password
         )
 
-        val requestBodyString = App.getGson().toJson(requestBody)
+        val requestBodyString = gson.toJson(requestBody)
         val okHttpRequestBody = requestBodyString.toRequestBody(TYPE_CONTENT.toMediaType())
 
         var singInResponseBody: LoginResponseBody? = null
 
-        val response = App.getClient()
+        val response = client
             .newCall(getRequest(okHttpRequestBody, URL_LOGIN))
             .execute()
 
@@ -48,7 +52,7 @@ class LoginTask {
             val responseBodyString = response.body?.string()
 
             if (!responseBodyString.isNullOrEmpty()) {
-                singInResponseBody = App.getGson().fromJson(
+                singInResponseBody = gson.fromJson(
                     responseBodyString,
                     LoginResponseBody::class.java
                 )
@@ -70,8 +74,5 @@ class LoginTask {
             .callInBackground({
                 getLoginResponseBody(email, password)
             }, cancellationToken)
-            .onSuccess({
-                it.result
-            }, Task.UI_THREAD_EXECUTOR)
     }
 }

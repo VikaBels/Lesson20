@@ -7,13 +7,24 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class App : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        self = this
+    }
+
     companion object {
+        private lateinit var self: App
+
         private val dateFormat = SimpleDateFormat(DATE_FORMAT, Locale.getDefault())
 
         private val gson = Gson()
         private val client = OkHttpClient
             .Builder()
             .build()
+
+        fun getInstanceApp(): App {
+            return self
+        }
 
         fun getDateFormat(): SimpleDateFormat {
             return dateFormat
