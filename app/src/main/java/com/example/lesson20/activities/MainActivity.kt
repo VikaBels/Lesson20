@@ -2,7 +2,6 @@ package com.example.lesson20.activities
 
 import android.content.Intent
 import android.os.Bundle
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.util.PatternsCompat
 import androidx.core.view.isVisible
@@ -11,19 +10,19 @@ import bolts.Task
 import com.example.lesson20.*
 import com.example.lesson20.databinding.ActivityMainBinding
 import com.example.lesson20.models.LoginResponseBody
-import com.example.lesson20.tasks.LoginTask
+import com.example.lesson20.tasks.LoginRepository
 import com.example.lesson20.utils.getTextError
+import com.example.lesson20.utils.showToastError
 
 class MainActivity : AppCompatActivity() {
     companion object {
-        const val TEXTVIEW_VISIBLE_KEY = "TEXTVIEW_VISIBLE_KEY"
+        const val KEY_VISIBLE_ERROR = "KEY_VISIBLE_ERROR"
     }
 
     private var bindingMain: ActivityMainBinding? = null
 
     private val cancellationTokenSourceMain: CancellationTokenSource = CancellationTokenSource()
-    private val loginTask = LoginTask(App.getGson(), App.getClient())
-
+    private val loginRepository = LoginRepository(App.getGson(), App.getClient())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,7 +43,7 @@ class MainActivity : AppCompatActivity() {
         val isVisibleError = bindingMain?.textViewError?.isVisible
 
         if (isVisibleError != null) {
-            outState.putBoolean(TEXTVIEW_VISIBLE_KEY, isVisibleError)
+            outState.putBoolean(KEY_VISIBLE_ERROR, isVisibleError)
         }
     }
 
@@ -55,8 +54,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun checkVisibilityTextError(savedInstanceState: Bundle?) {
-        if (savedInstanceState != null && savedInstanceState.containsKey(TEXTVIEW_VISIBLE_KEY)) {
-            val isVisibleError = savedInstanceState.getBoolean(TEXTVIEW_VISIBLE_KEY)
+        if (savedInstanceState != null && savedInstanceState.containsKey(KEY_VISIBLE_ERROR)) {
+            val isVisibleError = savedInstanceState.getBoolean(KEY_VISIBLE_ERROR)
             setVisibleTextError(isVisibleError)
         }
     }
@@ -77,11 +76,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupListeners(bindingMain: ActivityMainBinding) {
         bindingMain.buttonLogin.setOnClickListener {
-            startServerLoginTask()
+            startServerLoginRepository()
         }
     }
 
-    private fun startServerLoginTask() {
+    private fun startServerLoginRepository() {
         val email = getValidEmail()
         val password = getValidPassword()
 
@@ -89,24 +88,18 @@ class MainActivity : AppCompatActivity() {
 
             setVisibleProgressbar(true)
 
-            loginTask.startTask(cancellationTokenSourceMain.token, email, password)
+            loginRepository.startTask(cancellationTokenSourceMain.token, email, password)
                 .continueWith({
 
                     onReceiveResult(it.result)
 
                     if (it.error != null) {
                         setVisibleTextError(false)
-                        showToastError(getTextError(it.error))
+                        showToastError(getTextError(it.error), this)
                     }
 
                 }, Task.UI_THREAD_EXECUTOR)
         }
-    }
-
-    private fun showToastError(textError: String?) {
-        val duration = Toast.LENGTH_SHORT
-        val toast = Toast.makeText(this, textError, duration)
-        toast.show()
     }
 
     private fun getValidEmail(): String? {

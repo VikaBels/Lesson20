@@ -12,7 +12,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
 
-class LoginTask(
+class LoginRepository(
     private val gson: Gson,
     private val client: OkHttpClient
 ) {
@@ -21,6 +21,17 @@ class LoginTask(
             "https://pub.zame-dev.org/senla-training-addition/lesson-21.php?method=login"
     }
 
+    fun startTask(
+        cancellationToken: CancellationToken,
+        email: String,
+        password: String
+    ): Task<LoginResponseBody> {
+        return Task
+            .callInBackground({
+                getLoginResponseBody(email, password)
+            }, cancellationToken)
+    }
+    
     private fun getLoginResponseBody(email: String, password: String): LoginResponseBody? {
         var loginResponseBody: LoginResponseBody? = null
 
@@ -63,16 +74,5 @@ class LoginTask(
         }
 
         return singInResponseBody
-    }
-
-    fun startTask(
-        cancellationToken: CancellationToken,
-        email: String,
-        password: String
-    ): Task<LoginResponseBody> {
-        return Task
-            .callInBackground({
-                getLoginResponseBody(email, password)
-            }, cancellationToken)
     }
 }

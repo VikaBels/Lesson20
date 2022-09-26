@@ -12,13 +12,20 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
 
-class ProfileTask(
+class ProfileRepository(
     private val gson: Gson,
     private val client: OkHttpClient
 ) {
     companion object {
         private const val URL_PROFILE =
             "https://pub.zame-dev.org/senla-training-addition/lesson-21.php?method=profile"
+    }
+
+    fun startTask(cancellationToken: CancellationToken, token: String): Task<ProfileResponseBody> {
+        return Task
+            .callInBackground({
+                getProfileResponseBody(token)
+            }, cancellationToken)
     }
 
     private fun getProfileResponseBody(token: String): ProfileResponseBody? {
@@ -62,12 +69,5 @@ class ProfileTask(
         }
 
         return singInResponseBody
-    }
-
-    fun startTask(cancellationToken: CancellationToken, token: String): Task<ProfileResponseBody> {
-        return Task
-            .callInBackground({
-                getProfileResponseBody(token)
-            }, cancellationToken)
     }
 }

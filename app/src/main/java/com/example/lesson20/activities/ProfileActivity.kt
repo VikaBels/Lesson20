@@ -9,20 +9,23 @@ import com.example.lesson20.*
 import com.example.lesson20.databinding.ActivityProfileBinding
 import com.example.lesson20.App.Companion.getDateFormat
 import com.example.lesson20.models.ProfileResponseBody
-import com.example.lesson20.tasks.ProfileTask
+import com.example.lesson20.tasks.ProfileRepository
 import com.example.lesson20.utils.getTextError
+import com.example.lesson20.utils.showToastError
 
 class ProfileActivity : AppCompatActivity() {
     companion object {
-        const val PROFILE_RESPONSE_BODY_KEY = "PROFILE_RESPONSE_BODY_KEY"
+        const val KEY_PROFILE_RESPONSE_BODY = "KEY_PROFILE_RESPONSE_BODY"
     }
 
     private var bindingProfile: ActivityProfileBinding? = null
-    private var arguments: Bundle? = null
     private var profileResponseBody: ProfileResponseBody? = null
 
+    private var email: String? = null
+    private var token: String? = null
+
     private val cancellationTokenSourceProfile: CancellationTokenSource = CancellationTokenSource()
-    private val profileTask = ProfileTask(App.getGson(), App.getClient())
+    private val profileRepository = ProfileRepository(App.getGson(), App.getClient())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,13 +34,15 @@ class ProfileActivity : AppCompatActivity() {
         setContentView(bindingProfile.root)
 
         this.bindingProfile = bindingProfile
-        arguments = intent.extras
+
+        setTransmissionData()
+        checkTransmissionData()
 
         setupListeners(bindingProfile)
 
-        if (!isInstanceStateInfoExist(savedInstanceState)) {
+        if (!isInfoExist(savedInstanceState)) {
             setVisibleProgressbar(true)
-            startServerProfileTask()
+            startServerProfileRepository()
         }
     }
 
@@ -45,7 +50,7 @@ class ProfileActivity : AppCompatActivity() {
         super.onSaveInstanceState(outState)
 
         if (profileResponseBody != null) {
-            outState.putParcelable(PROFILE_RESPONSE_BODY_KEY, profileResponseBody)
+            outState.putParcelable(KEY_PROFILE_RESPONSE_BODY, profileResponseBody)
         }
     }
 
@@ -55,13 +60,22 @@ class ProfileActivity : AppCompatActivity() {
         cancellationTokenSourceProfile.cancel()
     }
 
-    private fun isInstanceStateInfoExist(savedInstanceState: Bundle?): Boolean {
-        return if (savedInstanceState != null && savedInstanceState.containsKey(PROFILE_RESPONSE_BODY_KEY)) {
-            val profileResponseBody =
-                savedInstanceState.getParcelable<ProfileResponseBody>(PROFILE_RESPONSE_BODY_KEY)
+    private fun setTransmissionData() {
+        email = intent.extras?.getString(KEY_FOR_SEND_EMAIL).orEmpty()
+        token = intent.extras?.getString(KEY_FOR_SEND_TOKEN)
+    }
 
-            isProfileInfoExist(profileResponseBody)
-        } else false
+    private fun checkTransmissionData() {
+        if (email.isNullOrEmpty() || token.isNullOrEmpty()) {
+            showToastError(resources.getString(R.string.error_transmission), this)
+        }
+    }
+
+    private fun isInfoExist(savedInstanceState: Bundle?): Boolean {
+        val profileResponseBody =
+            savedInstanceState?.getParcelable<ProfileResponseBody>(KEY_PROFILE_RESPONSE_BODY)
+
+        return isProfileInfoExist(profileResponseBody)
     }
 
     private fun isProfileInfoExist(profileResponseBody: ProfileResponseBody?): Boolean {
@@ -76,7 +90,8 @@ class ProfileActivity : AppCompatActivity() {
         this.profileResponseBody = profileResponseBody
     }
 
-    private fun onReceiveResult(profileResponseBody: ProfileResponseBody?) {
+    private fun onReceiveResult(profileResponseBody: ProfileResponseBody) {
+        this.profileResponseBody = profileResponseBody
         changeVisibleElements()
         setInfoAboutPerson(profileResponseBody)
     }
@@ -87,19 +102,21 @@ class ProfileActivity : AppCompatActivity() {
         }
     }
 
-    private fun startServerProfileTask() {
-        val token = getSendingInfo(KEY_FOR_SEND_TOKEN)
+    private fun startServerProfileRepository() {
+        val token = this.token
 
         if (!token.isNullOrEmpty()) {
 
-            profileTask.startTask(cancellationTokenSourceProfile.token, token)
+            profileRepository.startTask(cancellationTokenSourceProfile.token, token)
                 .continueWith({
 
-                    onReceiveResult(it.result)
-                    profileResponseBody = it.result
-
-                    if (it.error != null) {
-                        setTextError(getTextError(it.error))
+                    when {
+                        it.result != null -> {
+                            onReceiveResult(it.result)
+                        }
+                        it.error != null -> {
+                            setTextError(getTextError(it.error))
+                        }
                     }
 
                 }, Task.UI_THREAD_EXECUTOR)
@@ -112,10 +129,6 @@ class ProfileActivity : AppCompatActivity() {
 
     private fun setTextError(textError: String?) {
         bindingProfile?.textViewError?.text = textError
-    }
-
-    private fun getSendingInfo(key: String): String? {
-        return arguments?.getString(key)
     }
 
     private fun changeVisibleElements() {
@@ -131,27 +144,21 @@ class ProfileActivity : AppCompatActivity() {
         bindingProfile?.buttonLogout?.isVisible = isVisible
     }
 
-    private fun getEmail(): String {
-        return getSendingInfo(KEY_FOR_SEND_EMAIL).orEmpty()
-    }
+    private fun setInfoAboutPerson(responseBody: ProfileResponseBody) {
+        bindingProfile?.textViewEmail?.text =
+            getString(R.string.txt_view_email, this.email)
 
-    private fun setInfoAboutPerson(responseBody: ProfileResponseBody?) {
-        if (responseBody != null) {
-            bindingProfile?.textViewEmail?.text =
-                getString(R.string.txt_view_email, getEmail())
+        bindingProfile?.textViewFirstName?.text =
+            getString(R.string.txt_view_first_name, responseBody.firstName)
 
-            bindingProfile?.textViewFirstName?.text =
-                getString(R.string.txt_view_first_name, responseBody.firstName)
+        bindingProfile?.textViewLastName?.text =
+            getString(R.string.txt_view_last_name, responseBody.lastName)
 
-            bindingProfile?.textViewLastName?.text =
-                getString(R.string.txt_view_last_name, responseBody.lastName)
+        bindingProfile?.textViewBirthDate?.text =
+            getString(R.string.txt_view_birth_data, getFormattedDate(responseBody))
 
-            bindingProfile?.textViewBirthDate?.text =
-                getString(R.string.txt_view_birth_data, getFormattedDate(responseBody))
-
-            bindingProfile?.textViewNotes?.text =
-                getString(R.string.txt_view_notes, responseBody.notes)
-        }
+        bindingProfile?.textViewNotes?.text =
+            getString(R.string.txt_view_notes, responseBody.notes)
     }
 
     private fun getFormattedDate(responseBody: ProfileResponseBody): String {

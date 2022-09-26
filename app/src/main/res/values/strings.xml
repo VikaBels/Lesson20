@@ -17,6 +17,7 @@
     <string name="error_problem_with_socket">Sorry, problem with socket</string>
 
     <string name="error_unexpected">An error has occurred</string>
+    <string name="error_transmission">Data transmission error</string>
 
     <string name="txt_view_email">E-mail: %s</string>
     <string name="txt_view_first_name">First name: %s</string>
